@@ -1,0 +1,157 @@
+<html>
+<script src="../js/three.js?v=88"></script>
+<script src="../vendor/OrbitControls.js"></script>
+<body>
+
+
+
+<script>
+    function cout(obj){ console.log(obj); }
+
+    var camera, scene, renderer;
+    var mesh;
+    init();
+    animate();
+    function init() {
+        camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 1000 );
+
+        scene = new THREE.Scene();
+
+
+
+
+        var texture = new THREE.TextureLoader().load( '../img/worldMap1.jpg' );
+        var geometry1 = new THREE.BoxBufferGeometry( 200, 200, 200 );
+        var material1 = new THREE.MeshBasicMaterial( { map: texture } );
+        mesh = new THREE.Mesh( geometry1, material1 );
+
+        var x = -10, y = 0;
+        var heartShape = new THREE.Shape();
+
+        heartShape.moveTo( x + 5, y + 5 );
+        heartShape.bezierCurveTo( x + 5, y + 5, x + 4, y, x, y );
+        heartShape.bezierCurveTo( x - 6, y, x - 6, y + 7,x - 6, y + 7 );
+        heartShape.bezierCurveTo( x - 6, y + 11, x - 3, y + 15.4, x + 5, y + 19 );
+        heartShape.bezierCurveTo( x + 12, y + 15.4, x + 16, y + 11, x + 16, y + 7 );
+        heartShape.bezierCurveTo( x + 16, y + 7, x + 16, y, x + 10, y );
+        heartShape.bezierCurveTo( x + 7, y, x + 5, y + 5, x + 5, y + 5 );
+
+
+//         heartShape.moveTo(x, y);
+//         heartShape.lineTo(x + 60, y);
+//         heartShape.lineTo(x + 60, y + 15);
+//         heartShape.lineTo(x + 45, y + 15);
+//         heartShape.lineTo(x + 45, y + 25);
+//         heartShape.lineTo(x + 45, y + 25);
+//         heartShape.lineTo(x + 30, y + 30);
+//         heartShape.lineTo(x, y + 30);
+//         heartShape.lineTo(x, y);
+
+
+        var geometry = new THREE.ShapeGeometry( heartShape );
+        geometry.computeBoundingBox();
+        var box = geometry.boundingBox;
+        console.log(box.max);
+        console.log(box.min);
+        cout(geometry.vertices);
+        console.log("-------------------------------------");
+
+        var uvs = geometry.faceVertexUvs[0];
+        for(var i=0; i<uvs.length; i++){
+            for(var j=0; j<uvs[i].length; j++){
+                u = uvs[i][j];
+                u.x = (u.x - box.min.x) / (box.max.x - box.min.x);
+                u.y = (u.y - box.min.y) / (box.max.y - box.min.y);
+            }
+        }
+		
+		
+		
+        var material = new THREE.MeshBasicMaterial( { map:texture} );//, wireframe:true } );
+        var mesh = new THREE.Mesh( geometry, material ) ;
+        scene.add( mesh );
+
+
+
+
+        //mesh = new THREE.Mesh(geometry, material );
+        console.log(geometry);
+        mesh.scale.set(6, 6, 6);
+        mesh.position.set(-100, 0, 0);
+        scene.add( mesh );
+
+        var gridHelper = new THREE.GridHelper( 500, 50 , 0xff0000);
+        scene.add( gridHelper );
+
+        camera.position.x = -100;
+        camera.position.y = 50;
+        camera.position.z = 200;
+        var ambient = new THREE.AmbientLight( 0xff0000 );
+        scene.add( ambient );
+        window.scene = scene;
+        window.THREE = THREE;
+
+
+        renderer = new THREE.WebGLRenderer();
+
+
+        //Create a WebGLRenderer and turn on shadows in the renderer
+        renderer = new THREE.WebGLRenderer();
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+/*
+//Create a DirectionalLight and turn on shadows for the light
+        var light = new THREE.DirectionalLight( 0xffffff, 1, 100 );
+        light.position.set( 0, 1, 0 ); 			//default; light shining from top
+        light.castShadow = true;            // default false
+        scene.add( light );
+
+//Set up shadow properties for the light
+        light.shadow.mapSize.width = 512;  // default
+        light.shadow.mapSize.height = 512; // default
+        light.shadow.camera.near = 0.5;    // default
+        light.shadow.camera.far = 500;     // default
+
+//Create a sphere that cast shadows (but does not receive them)
+        var sphereGeometry = new THREE.SphereBufferGeometry( 5, 32, 32 );
+        var sphereMaterial = new THREE.MeshStandardMaterial( { color: 0xff0000 } );
+        var sphere = new THREE.Mesh( sphereGeometry, sphereMaterial );
+        sphere.castShadow = true; //default is false
+        sphere.receiveShadow = false; //default
+        scene.add( sphere );
+
+//Create a plane that receives shadows (but does not cast them)
+        var planeGeometry = new THREE.PlaneBufferGeometry( 20, 20, 32, 32 );
+        var planeMaterial = new THREE.MeshStandardMaterial( { color: 0x00ff00 } )
+        var plane = new THREE.Mesh( planeGeometry, planeMaterial );
+        plane.receiveShadow = true;
+        scene.add( plane );
+
+//Create a helper for the shadow camera (optional)
+        var helper = new THREE.CameraHelper( light.shadow.camera );
+        scene.add( helper );
+*/
+
+
+        var controls = new THREE.OrbitControls( camera, renderer.domElement );
+        window.addEventListener( 'resize', onWindowResize, false );
+    }
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize( window.innerWidth, window.innerHeight );
+    }
+    function animate() {
+        requestAnimationFrame( animate );
+//mesh.rotation.x += 0.005;
+//mesh.rotation.y += 0.01;
+        renderer.render( scene, camera );
+    }
+</script>
+
+</body>
+</html>

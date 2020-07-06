@@ -1,0 +1,223 @@
+
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Fireworks!</title>
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+    </style>
+	
+</head>
+
+
+<body>
+	<div id="main" style="width: 100%; height: 100%"></div>
+</body>
+
+<script src="../js/d3.v3.min.js"></script>
+<script src="../js/d3.geo.projection.v0.min.js"></script>
+<script src="../js/jquery.min.js"></script>
+<script src="../js/three.js?v=88"></script>
+<script src="../vendor/d3-threeD.js"></script>
+<script src="../vendor/Detector.js"></script>
+<script src="../vendor/stats.min.js"></script>
+<script src="../vendor/OrbitControls.js"></script>
+<script>
+
+function MapDemo (id) {
+	this.id = id;
+	this.WIDTH       = window.innerWidth; 
+	this.HEIGHT      = window.innerHeight;  
+	
+	this.VIEW_ANGLE  = 45;
+	this.NEAR        = 0.1; 
+	this.FAR         = 8000;
+	this.CAMERA_X    = 0;
+	this.CAMERA_Y    = 800;
+	this.CAMERA_Z    = 0;
+	this.CAMERA_LX   = 0;
+	this.CAMERA_LY   = 0;
+	this.CAMERA_LZ   = 0;
+	this.cameraSpeed = 0.02;
+
+	this.geo;
+	this.scene = {};
+	this.renderer = {};
+	this.projector = {};
+	this.camera = {};
+	this.stage = {};
+	this.countrys = {};
+	this.countryList = [];
+	this.citys = {};
+	this.INTERSECTED = null;
+}	
+
+
+function init() {
+	$.when(	$.getJSON("../data/country_river6.json") ).then(function(data){
+		map = new MapDemo("main");
+		map.init_d3();
+		map.init();
+		map.addStats();
+		map.add_light(0, 3000, 0, 1.0, 0xFFFFFF);
+
+		// var plain = map.add_plain();
+		// map.addCitys();
+
+		map.add_regions(data.country);
+		// map.add_China(data.country);
+		// map.add_rivers(data.river);
+		// map.addPointEx();
+
+		map.addTestObject();
+
+		// request animation frame
+		var onFrame = window.requestAnimationFrame;
+
+		function tick(timestamp) {
+			map.animate();
+			onFrame(tick);
+		}
+
+		onFrame(tick);
+		window.scene = map.scene;
+		window.THREE = THREE;
+	});
+}
+
+	
+MapDemo.prototype = {
+	init: function() {
+		if( Detector.webgl ){
+			this.renderer = new THREE.WebGLRenderer({ antialias : true, alpha: true });
+			//// 设置3D背景颜色
+			this.renderer.setClearColor( "#1C1F55", 1 );		//1C1F55
+		} else {
+			this.renderer = new THREE.CanvasRenderer();
+		}
+		this.renderer.setSize( this.WIDTH, this.HEIGHT );
+		document.getElementById(this.id).appendChild(this.renderer.domElement);
+
+		this.scene = new THREE.Scene();
+		// put a camera in the scene
+		this.camera = new THREE.PerspectiveCamera(this.VIEW_ANGLE, this.WIDTH / this.HEIGHT, this.NEAR, this.FAR);
+		this.camera.position.set(this.CAMERA_X, this.CAMERA_Y, this.CAMERA_Z);
+		this.camera.lookAt( new THREE.Vector3(this.CAMERA_LX, this.CAMERA_LY, this.CAMERA_LZ) );
+		this.scene.add(this.camera);
+		var bgTexture = new THREE.TextureLoader().load("../img/bg.jpg",
+			function ( texture ) { } );
+		this.scene.background = bgTexture;
+		bgTexture.wrapS = THREE.MirroredRepeatWrapping;
+		bgTexture.wrapT = THREE.MirroredRepeatWrapping;
+		
+		//// 测试效果
+		var cHelper = new THREE.CameraHelper( this.camera );
+		this.scene.add( cHelper );
+		var helper = new THREE.GridHelper( 1500, 50, 0xff0000, 0xffffff );
+		this.scene.add( helper );
+		var controls = new THREE.OrbitControls( this.camera, this.renderer.domElement );
+		var helper = new THREE.CameraHelper( this.camera );
+		this.scene.add( helper );
+		var ambLight = new THREE.AmbientLight(0xFFFFFF);  //0x2255ee  061756
+		this.scene.add(ambLight);	
+	},
+	
+	init_d3: function() {
+		function geoConfig() {
+			this.projection = d3.geo.equirectangular()  //mercator  naturalEarth() equirectangular
+				.translate([500, 0])
+				.scale(220)
+				.rotate([-162.5, 0, 0]);
+			this.path = d3.geo.path().projection(this.projection);
+		};
+		this.geo = new geoConfig();
+	},
+	
+	render: function() {
+		this.renderer.render(this.scene, this.camera);
+	},
+	animate: function() {
+		this.stats.update();
+		this.render();
+	},	
+	
+	add_regions: function(data) {
+		var lineMaterial = new THREE.LineBasicMaterial( { color: 0xFFFFFF, linewidth: 0x4eaff0 } ); //4AC8F4
+		var $this = this, shapeAll = [];
+		for (var i = 0 ; i < data.features.length ; i++) {
+			var geoFeature = data.features[i], feature = this.geo.path(geoFeature);
+
+			//// Geo核心转换
+			var shapes = transformSVGPathExposed(feature);
+			for (var j = 0 ; j < shapes.length; j++) {
+				shapeAll.push(shapes[j]);
+				var name = ('properties' in geoFeature) ? geoFeature.properties.name : '';
+
+				var lineGeometry = new THREE.Geometry().setFromPoints( shapes[j].getPoints(250) );
+				var outline = new THREE.Line( lineGeometry, lineMaterial );
+				outline.rotation.x = Math.PI/2;
+				outline.position.y = 0;
+				this.translate(outline);
+				this.scene.add(outline);
+			}
+		}
+	},
+	
+	add_light: function(x, y, z, intensity, color) {
+		var pointLight = new THREE.PointLight(color);
+		pointLight.position.set(x, y, z);
+		pointLight.intensity = intensity;
+		this.scene.add(pointLight);
+	},
+		
+	translate: function(obj){
+		obj.translateX(-524);
+		obj.position.y += 70;
+		obj.translateZ(50);
+	},
+	
+	addStats:function () {
+		var stats = new Stats();
+		stats.setMode(0); // 0: fps, 1: ms
+		// 放在左上角
+		stats.domElement.style.position = 'absolute';
+		stats.domElement.style.left = '0px';
+		stats.domElement.style.top = '0px';
+		document.body.appendChild(stats.domElement);
+		this.stats = stats;
+		return stats;
+	},	
+	
+	// 一个会反光的球体
+	addTestObject: function (pos){
+		var matStdParams = {
+			roughness: 0.044676705160855, // calculated from shininess = 1000
+			metalness: 0.0
+		};
+		pos = pos || new THREE.Vector3(100, 100, 100);
+		var geoSphere = new THREE.SphereGeometry( 10, 32, 32 );
+		var matStdObjects = new THREE.MeshStandardMaterial( matStdParams );
+		var mshStdSphere = new THREE.Mesh( geoSphere, matStdObjects );
+		mshStdSphere.castShadow = true;
+		mshStdSphere.receiveShadow = true;
+		mshStdSphere.position.copy( pos );
+		this.scene.add( mshStdSphere );
+		return mshStdSphere;
+	}
+}
+
+
+init();
+		
+
+
+
+
+</script>
+
+</html>

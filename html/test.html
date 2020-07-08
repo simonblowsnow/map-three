@@ -37,9 +37,9 @@ function MapDemo (id) {
 	this.VIEW_ANGLE  = 45;
 	this.NEAR        = 0.1; 
 	this.FAR         = 8000;
-	this.CAMERA_X    = 0;
-	this.CAMERA_Y    = 800;
-	this.CAMERA_Z    = 0;
+	this.CAMERA_X    = -50;
+	this.CAMERA_Y    = 300;
+	this.CAMERA_Z    = 80;
 	this.CAMERA_LX   = 0;
 	this.CAMERA_LY   = 0;
 	this.CAMERA_LZ   = 0;
@@ -59,22 +59,23 @@ function MapDemo (id) {
 
 
 function init() {
-	$.when(	$.getJSON("../data/country_river6.json") ).then(function(data){
+	$.when(	$.getJSON("../data/51.json") ).then(function(data){  // country_river6	
 		map = new MapDemo("main");
 		map.init_d3();
 		map.init();
 		map.addStats();
-		map.add_light(0, 3000, 0, 1.0, 0xFFFFFF);
+		// map.add_light(0, 3000, 0, 1.0, 0xFFFFFF);
 
 		// var plain = map.add_plain();
 		// map.addCitys();
 
-		map.add_regions(data.country);
+		// map.add_image_region(data.country);
+		map.add_image_region(data);
 		// map.add_China(data.country);
 		// map.add_rivers(data.river);
 		// map.addPointEx();
 
-		map.addTestObject();
+		// map.addTestObject();
 
 		// request animation frame
 		var onFrame = window.requestAnimationFrame;
@@ -96,7 +97,7 @@ MapDemo.prototype = {
 		if( Detector.webgl ){
 			this.renderer = new THREE.WebGLRenderer({ antialias : true, alpha: true });
 			//// 设置3D背景颜色
-			this.renderer.setClearColor( "#1C1F55", 1 );		//1C1F55
+			this.renderer.setClearColor( "#005f99", 1 );		//1C1F55
 		} else {
 			this.renderer = new THREE.CanvasRenderer();
 		}
@@ -109,11 +110,13 @@ MapDemo.prototype = {
 		this.camera.position.set(this.CAMERA_X, this.CAMERA_Y, this.CAMERA_Z);
 		this.camera.lookAt( new THREE.Vector3(this.CAMERA_LX, this.CAMERA_LY, this.CAMERA_LZ) );
 		this.scene.add(this.camera);
+		/*
 		var bgTexture = new THREE.TextureLoader().load("../img/bg.jpg",
 			function ( texture ) { } );
 		this.scene.background = bgTexture;
 		bgTexture.wrapS = THREE.MirroredRepeatWrapping;
 		bgTexture.wrapT = THREE.MirroredRepeatWrapping;
+		*/
 		
 		//// 测试效果
 		var cHelper = new THREE.CameraHelper( this.camera );
@@ -121,8 +124,6 @@ MapDemo.prototype = {
 		var helper = new THREE.GridHelper( 1500, 50, 0xff0000, 0xffffff );
 		this.scene.add( helper );
 		var controls = new THREE.OrbitControls( this.camera, this.renderer.domElement );
-		var helper = new THREE.CameraHelper( this.camera );
-		this.scene.add( helper );
 		var ambLight = new THREE.AmbientLight(0xFFFFFF);  //0x2255ee  061756
 		this.scene.add(ambLight);
 	},
@@ -130,9 +131,9 @@ MapDemo.prototype = {
 	init_d3: function() {
 		function geoConfig() {
 			this.projection = d3.geo.equirectangular()  //mercator  naturalEarth() equirectangular
-				.translate([500, 0])
-				.scale(220)
-				.rotate([-162.5, 0, 0]);
+				.translate([-8000, 2400])
+				.scale(4500)
+				// .rotate([-162.5, 0, 0]);
 			this.path = d3.geo.path().projection(this.projection);
 		};
 		this.geo = new geoConfig();
@@ -145,40 +146,95 @@ MapDemo.prototype = {
 		this.stats.update();
 		this.render();
 	},	
-	
-	add_regions: function(data) {
-		var chinaConfig = { color: 0xFF7F50, opacity: 0.65, transparent:true, vertexColors:'red'};
+	add_image_region: function(data) { 
+		var chinaConfig = { color: 0x1091ff, opacity: 1, transparent:true, vertexColors:0xffffff }; //FF7F50 0.65
 		var chinaMaterial = new THREE.MeshPhongMaterial(chinaConfig);
-		var lineMaterial = new THREE.LineBasicMaterial( { color: 0x4AC8F4, linewidth: 0.3 } ); //344360 0.1 36B3E5 4AC8F4
-		
+		var lineMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, linewidth: 0.01 } ); //4AC8F4
+
+		var shapeAll = [];
 		for (var i = 0 ; i < data.features.length ; i++) {
 			var geoFeature = data.features[i], feature = this.geo.path(geoFeature);
-			var normalConfig = { color: 0x97E5FE, opacity: 0.20, transparent:true, vertexColors:'red'};	//0x0B2F51 0.65
+			var normalConfig = { color: 0xff0000, opacity: 1, transparent:true, vertexColors:'red'};	//97E5FE 0.65 0.20
 			var normalMaterial = new THREE.MeshBasicMaterial(normalConfig);
-			// MeshPhongMaterial MeshLambertMaterial MeshBasicMaterial
+			//// 备选 MeshPhongMaterial MeshLambertMaterial MeshBasicMaterial
 
 			//// Geo核心转换
-			var mesh = transformSVGPathExposed(feature);
-			for (var j = 0 ; j < mesh.length ; j++) {
-				var material = 1 ? normalMaterial : chinaMaterial;
-				var shape3d = new THREE.ExtrudeGeometry(mesh[j], { amount: 5, bevelEnabled: false, 
-					steps: 10, curveSegments: 16 });
+			var shapes = transformSVGPathExposed(feature);
+
+			for (var j = 0 ; j < shapes.length ; j++) {
+				shapeAll.push(shapes[j]);
+				continue;
+
+				var name = geoFeature.properties.name;
+				var material = 0 ? normalMaterial : chinaMaterial; // name!="China"
+				var shape3d = new THREE.ExtrudeGeometry(shapes[j], { amount: 0, bevelEnabled: false });
 
 				var country = new THREE.Mesh(shape3d, material);
-				var lineGeometry = new THREE.Geometry().setFromPoints( mesh[j].getPoints(250) );
+				var lineGeometry = new THREE.Geometry().setFromPoints( shapes[j].getPoints(750) );
 				var outline = new THREE.Line( lineGeometry, lineMaterial );
 				country.name = name;
 				country.rotation.x = Math.PI/2;
 				outline.rotation.x = Math.PI/2;
 				country.position.y = 0;
 				outline.position.y = 0;
+				
 				this.translate(outline);
 				this.translate(country);
-				this.scene.add(country);
-				this.scene.add(outline);
+				// this.scene.add(country);
+				// this.scene.add(outline);
 				this.countryList.push(country);
+
 			}
-		};		
+		}
+
+		var texture = new THREE.TextureLoader().load("../img/sc1.png");   //worldMap1
+		var extrusionSettings = {
+			amount: 10, bevelEnabled: true,
+			bevelThickness: 0.5, bevelSize: 0.3, 
+			bevelSegments: 1, material: 0.5, extrudeMaterial: 1,
+			UVGenerator: THREE.ExtrudeGeometry.BoundingBoxUVGenerator
+		};
+		var geometry = new THREE.ExtrudeGeometry(shapeAll, extrusionSettings);  //{ amount: 2, bevelEnabled: false }
+		// geometry.scale.x = 10;
+		// geometry.scale.y = 10;
+		geometry.computeBoundingBox();
+		// debugger
+		
+		var box = geometry.boundingBox;
+		var p = 2, offsetY = 0, W = box.max.x - box.min.x, H = W / p, minY = box.max.y - box.min.y; // minY = -H / 2 + offsetY;
+		H = box.max.y - box.min.y;
+		
+		var uvs = geometry.faceVertexUvs[0];
+		console.log(box);
+		console.log([box.max.x, box.min.x]);
+		
+		for(var i = 0; i < uvs.length; i++){
+			for(var j = 0; j < uvs[i].length; j++){
+				u = uvs[i][j];
+				u.x = (u.x - box.min.x) / W;
+				u.y = 1 - (u.y - box.min.y) / H;
+				// u.y = 1 - (u.y - minY) / H;
+				// console.log([u.x, u.y]);
+				// console.log([box.min.x, u.x, u.y, u.y - minY]);
+			}
+		}
+
+		var normalConfig = {map:texture,  color: 0xffffff, opacity: 1, transparent: true};  // transparent:true  map:texture, , wireframe:true
+		var country = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial(normalConfig));
+		
+		country.rotation.x = Math.PI / 2;
+		country.position.y = 0;
+		/*
+		country.scale.x = 10;
+		country.scale.y = 10;
+		country.position.x = -2670;
+		country.position.z = 1120;
+		*/
+		// country.position.set(new THREE.Vector3(0, 0, 0));
+		// country.scale.set(new THREE.Vector3(5, 5, 1));
+		
+		// this.translate(country);
+		this.scene.add(country);
 	},
 	
 	add_light: function(x, y, z, intensity, color) {
